@@ -22,12 +22,15 @@ The repository contains several Python and JavaScript/TypeScript libraries.
 Below is a high-level overview:
 
 - **checkpoint** – base interfaces for LangGraph checkpointers.
+- **checkpoint-conformance** – conformance test suite for checkpointer implementations.
 - **checkpoint-postgres** – Postgres implementation of the checkpoint saver.
 - **checkpoint-sqlite** – SQLite implementation of the checkpoint saver.
 - **cli** – official command-line interface for LangGraph.
 - **langgraph** – core framework for building stateful, multi-actor agents.
 - **prebuilt** – high-level APIs for creating and running agents and tools.
-- **sdk-js** – JS/TS SDK for interacting with the LangGraph REST API.
+- **sdk-js** – stub only; the JS/TS SDK has moved to the standalone
+  [`langchain-ai/langgraphjs`](https://github.com/langchain-ai/langgraphjs)
+  repo (`libs/sdk-js` here just contains a README pointing there).
 - **sdk-py** – Python SDK for the LangGraph Server API.
 
 ### Dependency map
@@ -37,6 +40,7 @@ declared in that library's `pyproject.toml` (or `package.json`).
 
 ```text
 checkpoint
+├── checkpoint-conformance
 ├── checkpoint-postgres
 ├── checkpoint-sqlite
 ├── prebuilt
@@ -48,9 +52,10 @@ prebuilt
 sdk-py
 ├── langgraph
 └── cli
-
-sdk-js (standalone)
 ```
+
+`sdk-js` is excluded from the map above — it no longer ships code from this
+repo (see the library list).
 
 Changes to a library may impact all of its dependents shown above.
 
