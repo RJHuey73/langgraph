@@ -1,15 +1,24 @@
 """Msgpack deserialization safety controls.
 
-Set ``LANGGRAPH_STRICT_MSGPACK=true`` to restrict checkpoint deserialization
-to the types listed in ``SAFE_MSGPACK_TYPES``.  Without this, any Python
+By default (secure-by-default), checkpoint deserialization is restricted to
+the types listed in ``SAFE_MSGPACK_TYPES`` plus any caller-supplied
+``allowed_msgpack_modules``. Set ``LANGGRAPH_STRICT_MSGPACK=false`` to
+explicitly opt back into the legacy, permissive behavior, where any Python
 callable stored in checkpoint data will be imported and executed on load.
+Only do this if you fully trust every writer of your checkpoint store.
 """
 
 import os
 from collections.abc import Iterable
 from typing import cast
 
-STRICT_MSGPACK_ENABLED = os.getenv("LANGGRAPH_STRICT_MSGPACK", "false").lower() in (
+# Secure by default: when the env var is unset, deserialization is
+# restricted to SAFE_MSGPACK_TYPES (and any explicit allowed_msgpack_modules
+# passed to the constructor). Set LANGGRAPH_STRICT_MSGPACK=false to opt back
+# into the pre-fix permissive behavior (all types allowed, with a warning) --
+# this reopens arbitrary code execution if an attacker can write to your
+# checkpoint store, so only do it if you understand and accept that risk.
+STRICT_MSGPACK_ENABLED = os.getenv("LANGGRAPH_STRICT_MSGPACK", "true").lower() in (
     "1",
     "true",
     "yes",
