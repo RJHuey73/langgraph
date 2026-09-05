@@ -218,10 +218,59 @@ async def test_memory_saver() -> None:
         assert sync_memory_saver is memory_saver
 
 
-def test_memory_saver_warns_on_unregistered_msgpack(
+def test_memory_saver_blocks_unregistered_msgpack_by_default(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """A bare, default-constructed JsonPlusSerializer must block unregistered
+    types out of the box (secure-by-default).
+
+    Regression test for a confirmed high-severity insecure-default: prior to
+    the fix, ``JsonPlusSerializer()`` (with no arguments and no
+    ``LANGGRAPH_STRICT_MSGPACK`` override -- i.e. exactly what
+    ``BaseCheckpointSaver.serde`` and ``InMemorySaver()`` use when the caller
+    doesn't configure a serializer) allowed *any* unregistered
+    ``(module, name)`` pair to be imported and constructed with
+    attacker-controlled arguments on deserialization. This test previously
+    asserted that permissive behavior (logging "unregistered type" and still
+    reconstructing the object) as if it were the correct default; that was
+    the vulnerability, not a feature to protect. The default must now match
+    the strict path (see ``test_memory_saver_strict_blocks_unregistered``):
+    log "blocked" and degrade to the raw dict instead of constructing it.
+    """
     serde = JsonPlusSerializer()
+    memory_saver = InMemorySaver(serde=serde)
+    obj = MemoryPydantic(foo="bar")
+
+    checkpoint = empty_checkpoint()
+    checkpoint["channel_values"] = {"foo": obj}
+    checkpoint["channel_versions"] = {"foo": 1}
+
+    config: RunnableConfig = {
+        "configurable": {"thread_id": "thread-1", "checkpoint_ns": ""}
+    }
+
+    caplog.set_level(logging.WARNING, logger="langgraph.checkpoint.serde.jsonplus")
+    new_config = memory_saver.put(config, checkpoint, {}, {"foo": 1})
+    result = memory_saver.get_tuple(new_config)
+
+    assert result is not None
+    assert "blocked" in caplog.text.lower()
+    assert "unregistered type" not in caplog.text.lower()
+    expected = obj.model_dump() if hasattr(obj, "model_dump") else obj.dict()
+    assert result.checkpoint["channel_values"]["foo"] == expected
+
+
+def test_memory_saver_warns_when_explicitly_permissive(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The legacy permissive behavior remains available as an explicit opt-in.
+
+    A caller who explicitly passes ``allowed_msgpack_modules=True`` (or sets
+    ``LANGGRAPH_STRICT_MSGPACK=false``) is deliberately choosing to trust
+    every writer of the checkpoint store; unregistered types are still
+    reconstructed, with a warning logged so the choice remains observable.
+    """
+    serde = JsonPlusSerializer(allowed_msgpack_modules=True)
     memory_saver = InMemorySaver(serde=serde)
     obj = MemoryPydantic(foo="bar")
 

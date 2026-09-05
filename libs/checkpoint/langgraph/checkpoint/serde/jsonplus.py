@@ -89,9 +89,12 @@ class JsonPlusSerializer(SerializerProtocol):
         python objects. If an attacker can write directly to your checkpoint database,
         they may be able to trigger code execution when data is deserialized.
 
-        Set the environment variable ``LANGGRAPH_STRICT_MSGPACK=true`` to restrict
-        deserialization to a built-in allowlist of safe types.  You can also pass
-        an explicit ``allowed_msgpack_modules`` to the constructor.
+        By default, msgpack deserialization is restricted to a built-in allowlist of
+        safe types (``SAFE_MSGPACK_TYPES``) plus any types you pass via
+        ``allowed_msgpack_modules``. Set the environment variable
+        ``LANGGRAPH_STRICT_MSGPACK=false`` (or pass ``allowed_msgpack_modules=True``
+        to the constructor) to opt back into the legacy, permissive behavior --
+        only do this if you fully trust every writer of your checkpoint store.
     """
 
     def __init__(
@@ -106,11 +109,12 @@ class JsonPlusSerializer(SerializerProtocol):
     ) -> None:
         if allowed_msgpack_modules is _lg_msgpack._SENTINEL:
             if _lg_msgpack.STRICT_MSGPACK_ENABLED:
-                # Strict: only SAFE_MSGPACK_TYPES are allowed.
+                # Strict (default): only SAFE_MSGPACK_TYPES are allowed.
                 allowed_msgpack_modules = None
             else:
-                # Permissive (default): all types allowed with a warning.
-                # Set LANGGRAPH_STRICT_MSGPACK=true to lock this down.
+                # Permissive: all types allowed with a warning. Opt-in only,
+                # via LANGGRAPH_STRICT_MSGPACK=false (or pass
+                # allowed_msgpack_modules=True explicitly).
                 allowed_msgpack_modules = True
         self.pickle_fallback = pickle_fallback
         self._allowed_json_modules: set[tuple[str, ...]] | Literal[True] | None = (
